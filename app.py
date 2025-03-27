@@ -34,49 +34,49 @@ def isTrue(x) -> bool:
     return x.strip().lower() == 'true'
 
 def plot_data(df):
-    st.write("Data Visualization")
-    # Plot configuration
-    plot_type = st.selectbox("Select Plot Type", ["Bar", "Line", "Scatter", "Box", "Histogram", "Pie"])
-    
-    # Get all columns for selection
-    all_columns = df.columns.tolist()
-    
-    if plot_type == "Pie":
-        values = st.selectbox("Select Values", all_columns)
-        names = st.selectbox("Select Labels", all_columns)
-        fig = px.pie(df, values=values, names=names)
-    elif plot_type == "Histogram":
-        x_axis = st.selectbox("Select Column for Histogram", all_columns)
-        fig = px.histogram(df, x=x_axis)
-    else:
-        x_axis = st.selectbox("Select X-axis", all_columns)
-        y_axis = st.selectbox("Select Y-axis", all_columns)
+    with st.expander("Data Visualization"):
+        # Plot configuration
+        plot_type = st.selectbox("Select Plot Type", ["Bar", "Line", "Scatter", "Box", "Histogram", "Pie"])
         
-        # Create plot based on selection
-        if plot_type == "Bar":
-            fig = px.bar(df, x=x_axis, y=y_axis)
-        elif plot_type == "Line":
-            fig = px.line(df, x=x_axis, y=y_axis)
-        elif plot_type == "Scatter":
-            fig = px.scatter(df, x=x_axis, y=y_axis)
-        else:  # Box plot
-            fig = px.box(df, x=x_axis, y=y_axis)
-    
-    # Additional customization options
-    st.write("Customize Plot")
-    title = st.text_input("Plot Title", "")
-    if title:
-        fig.update_layout(title=title)
-    
-    x_title = st.text_input("X-axis Title", "")
-    if x_title:
-        fig.update_xaxes(title=x_title)
-    
-    y_title = st.text_input("Y-axis Title", "")
-    if y_title:
-        fig.update_yaxes(title=y_title)
+        # Get all columns for selection
+        all_columns = df.columns.tolist()
+        
+        if plot_type == "Pie":
+            values = st.selectbox("Select Values", all_columns)
+            names = st.selectbox("Select Labels", all_columns)
+            fig = px.pie(df, values=values, names=names)
+        elif plot_type == "Histogram":
+            x_axis = st.selectbox("Select Column for Histogram", all_columns)
+            fig = px.histogram(df, x=x_axis)
+        else:
+            x_axis = st.selectbox("Select X-axis", all_columns)
+            y_axis = st.selectbox("Select Y-axis", all_columns)
             
-    st.plotly_chart(fig)
+            # Create plot based on selection
+            if plot_type == "Bar":
+                fig = px.bar(df, x=x_axis, y=y_axis)
+            elif plot_type == "Line":
+                fig = px.line(df, x=x_axis, y=y_axis)
+            elif plot_type == "Scatter":
+                fig = px.scatter(df, x=x_axis, y=y_axis)
+            else:  # Box plot
+                fig = px.box(df, x=x_axis, y=y_axis)
+        
+        # Additional customization options
+        st.write("Customize Plot")
+        title = st.text_input("Plot Title", "")
+        if title:
+            fig.update_layout(title=title)
+        
+        x_title = st.text_input("X-axis Title", "")
+        if x_title:
+            fig.update_xaxes(title=x_title)
+        
+        y_title = st.text_input("Y-axis Title", "")
+        if y_title:
+            fig.update_yaxes(title=y_title)
+                
+        st.plotly_chart(fig)
 
 def launch_bot():
     def reset():
@@ -180,9 +180,9 @@ def launch_bot():
         prompt = st.session_state.ex_prompt
     else:
         prompt = st.chat_input()
-        # Add checkbox for tabular response
-        want_table = st.checkbox("Get response in tabular format")
-        if prompt and want_table:
+        # Add pill selector for response format
+        selected_format = st.pills("Response format:", ["Normal", "Table"], selection_mode="single", default="Normal")
+        if prompt and selected_format == "Table":
             prompt = f"[table] {prompt}"
             
     if prompt:
