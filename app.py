@@ -3,11 +3,17 @@ from query import VectaraQuery
 import os
 from PIL import Image
 import uuid
+import io
+import pptx
+from pptx.util import Inches
+import pandas as pd
+from fpdf import FPDF
+import plotly.express as px
+import plotly.io as pio
 
 import streamlit as st
 from streamlit_pills import pills
 from streamlit_feedback import streamlit_feedback
-import plotly.express as px
 
 from utils import thumbs_feedback, send_amplitude_data, escape_dollars_outside_latex
 
@@ -24,7 +30,6 @@ languages = {'English': 'eng', 'Spanish': 'spa', 'French': 'fra', 'Chinese': 'zh
 if 'device_id' not in st.session_state:
     st.session_state.device_id = str(uuid.uuid4())
 
-
 if "feedback_key" not in st.session_state:
         st.session_state.feedback_key = 0
 
@@ -33,7 +38,56 @@ def isTrue(x) -> bool:
         return x
     return x.strip().lower() == 'true'
 
+def export_to_ppt(messages, fig=None):
+    prs = pptx.Presentation()
+    # Export the last message (response) and graph
+    msg = messages[-1]
+    slide = prs.slides.add_slide(prs.slide_layouts[1])  # Using layout 1 which has title and content
+    title = slide.shapes.title
+    title.text = "Response"
+    text_frame = slide.shapes.placeholders[1].text_frame
+    text_frame.text = str(msg["content"])
+                
+    if fig is not None:
+        slide = prs.slides.add_slide(prs.slide_layouts[6])  # Using blank layout for image
+        title = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(8), Inches(1))
+        title.text_frame.text = "Visualization"
+        img_stream = io.BytesIO()
+        pio.write_image(fig, img_stream, format='png')
+        img_stream.seek(0)
+        slide.shapes.add_picture(img_stream, Inches(1), Inches(2), width=Inches(8))
+        
+    pptx_stream = io.BytesIO()
+    prs.save(pptx_stream)
+    return pptx_stream.getvalue()
+
+def export_to_pdf(messages, fig=None):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    
+    # Export the last message (response)
+    msg = messages[-1]
+    pdf.cell(200, 10, txt="Response:", ln=True)
+    pdf.multi_cell(0, 10, txt=str(msg["content"]))
+    
+    if fig is not None:
+        pdf.add_page()
+        img_stream = io.BytesIO()
+        pio.write_image(fig, img_stream, format='png')
+        img_stream.seek(0)
+        # Save BytesIO to temporary file
+        temp_img = "temp_plot.png"
+        with open(temp_img, 'wb') as f:
+            f.write(img_stream.getvalue())
+        pdf.image(temp_img, x=10, y=10, w=190)
+        # Clean up temp file
+        os.remove(temp_img)
+        
+    return pdf.output(dest='S').encode('latin-1')
+
 def plot_data(df):
+    fig = None
     with st.expander("Data Visualization"):
         # Plot configuration
         plot_type = st.selectbox("Select Plot Type", ["Bar", "Line", "Scatter", "Box", "Histogram", "Pie"])
@@ -77,6 +131,42 @@ def plot_data(df):
             fig.update_yaxes(title=y_title)
                 
         st.plotly_chart(fig)
+        
+        # Export options
+        st.write("Export Options")
+        export_format = st.selectbox("Select Export Format", ["PowerPoint", "PDF", "Excel"])
+        
+        if st.button("Export"):
+            if export_format == "PowerPoint":
+                pptx_bytes = export_to_ppt(st.session_state.messages, fig)
+                st.download_button(
+                    label="Download PowerPoint",
+                    data=pptx_bytes,
+                    file_name="chat_export.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                )
+            elif export_format == "PDF":
+                pdf_bytes = export_to_pdf(st.session_state.messages, fig)
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_bytes,
+                    file_name="chat_export.pdf",
+                    mime="application/pdf"
+                )
+            elif export_format == "Excel":
+                if isinstance(st.session_state.messages[-1]["content"], pd.DataFrame):
+                    excel_buffer = io.BytesIO()
+                    st.session_state.messages[-1]["content"].to_excel(excel_buffer, index=False)
+                    excel_bytes = excel_buffer.getvalue()
+                    st.download_button(
+                        label="Download Excel",
+                        data=excel_bytes,
+                        file_name="data_export.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                else:
+                    st.error("Excel export is only available for tabular data")
+    return fig
 
 def launch_bot():
     def reset():
@@ -131,8 +221,6 @@ def launch_bot():
     with st.sidebar:
         image = Image.open('ti-logo.png')
         st.image(image, width=350)
-        # st.markdown(f"## About\n\n"
-        #             f"This demo uses Vectara RAG to ask questions about {cfg.source_data_desc}\n")
         
         cfg.language = st.selectbox('Language:', languages.keys())
         if st.session_state.language != cfg.language:
@@ -148,11 +236,6 @@ def launch_bot():
                 st.rerun()
 
         st.markdown("---")
-        # st.markdown(
-        #     "## How this works?\n"
-        #     "This app was built with [Vectara](https://vectara.com).\n"
-        #     "This app uses Vectara [Chat API](https://docs.vectara.com/docs/console-ui/vectara-chat-overview) to query the corpus and present the results to you, answering your question.\n\n"
-        # )       
 
     st.markdown(f"<center> <h2> {cfg.title} </h2> </center>", unsafe_allow_html=True)
 
@@ -164,6 +247,27 @@ def launch_bot():
         with st.chat_message(message["role"], avatar=message["avatar"]):
             if isinstance(message["content"], str):
                 st.write(message["content"])
+                # Add export options for text responses
+                if message["role"] == "assistant" and message["content"] != "How may I help you?":
+                    st.write("Export Options")
+                    export_format = st.selectbox("Select Export Format", ["PowerPoint", "PDF"], key=f"export_{message['role']}")
+                    if st.button("Export", key=f"export_btn_{message['role']}"):
+                        if export_format == "PowerPoint":
+                            pptx_bytes = export_to_ppt(st.session_state.messages)
+                            st.download_button(
+                                label="Download PowerPoint",
+                                data=pptx_bytes,
+                                file_name="chat_export.pptx",
+                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                            )
+                        elif export_format == "PDF":
+                            pdf_bytes = export_to_pdf(st.session_state.messages)
+                            st.download_button(
+                                label="Download PDF",
+                                data=pdf_bytes,
+                                file_name="chat_export.pdf",
+                                mime="application/pdf"
+                            )
             else:  # For dataframe responses
                 st.dataframe(message["content"])
                 if not message["content"].empty:

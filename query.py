@@ -53,8 +53,9 @@ class VectaraQuery():
                 'response_language': response_lang,
                 'citations':
                 {
-                    'style': 'markdown',
-                    'url_pattern': '{doc.url}'
+                    'style': 'none',
+                    'url_pattern': 'https://vectara.com/documents/{doc.id}',
+                    'text_pattern': '{doc.title}'
                 },
                 'enable_factual_consistency_score': True
             },
