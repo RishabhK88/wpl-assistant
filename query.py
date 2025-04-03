@@ -105,27 +105,25 @@ class VectaraQuery():
 
         summary = res['answer']
         
-        # Check if query contains [table] and return dataframe
         if '[table]' in query_str.lower():
             search_results = res.get('search_results', [])
             if search_results:
                 data = []
                 for result in search_results:
                     metadata = result.get('part_metadata', {})
-                    row = {
-                        "country_code": metadata.get("country_code"),
-                        "state_code": metadata.get("state_code"),
-                        "country_name": metadata.get("country_name"),
-                    }
+                    row = {}
+                    for field_name, field_value in metadata.items():
+                        if(field_name not in ["lang", "offset", "len"]):
+                            row[field_name] = metadata.get(field_name)
                     data.append(row)
                 return pd.DataFrame(data)
-            return pd.DataFrame()  # Empty dataframe if no results
+            return pd.DataFrame()
             
         return summary
 
     def submit_query_streaming(self, query_str: str, language: str):
         if '[table]' in query_str.lower():
-            return self.submit_query(query_str, language)  # Return dataframe for table queries
+            return self.submit_query(query_str, language)
 
         if self.conv_id:
             endpoint = f"https://api.vectara.io/v2/chats/{self.conv_id}/turns"
@@ -145,7 +143,7 @@ class VectaraQuery():
         chunks = []
         for line in response.iter_lines():
             line = line.decode('utf-8')
-            if line:  # filter out keep-alive new lines
+            if line:
                 key, value = line.split(':', 1)
                 if key == 'data':
                     line = json.loads(value)

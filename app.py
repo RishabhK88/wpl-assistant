@@ -26,7 +26,6 @@ languages = {'English': 'eng', 'Spanish': 'spa', 'French': 'fra', 'Chinese': 'zh
              'Vietnamese': 'vie', 'Thai': 'tha', 'Hebrew': 'heb', 'Dutch': 'nld', 'Indonesian': 'ind', 'Polish': 'pol', 'Ukrainian': 'ukr',
              'Romanian': 'ron', 'Swedish': 'swe', 'Czech': 'ces', 'Greek': 'ell', 'Bengali': 'ben', 'Malay (or Malaysian)': 'msa', 'Urdu': 'urd'}
 
-# Setup for HTTP API Calls to Amplitude Analytics
 if 'device_id' not in st.session_state:
     st.session_state.device_id = str(uuid.uuid4())
 
@@ -40,16 +39,15 @@ def isTrue(x) -> bool:
 
 def export_to_ppt(messages, fig=None):
     prs = pptx.Presentation()
-    # Export the last message (response) and graph
     msg = messages[-1]
-    slide = prs.slides.add_slide(prs.slide_layouts[1])  # Using layout 1 which has title and content
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
     title = slide.shapes.title
     title.text = "Response"
     text_frame = slide.shapes.placeholders[1].text_frame
     text_frame.text = str(msg["content"])
                 
     if fig is not None:
-        slide = prs.slides.add_slide(prs.slide_layouts[6])  # Using blank layout for image
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
         title = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(8), Inches(1))
         title.text_frame.text = "Visualization"
         img_stream = io.BytesIO()
@@ -66,7 +64,6 @@ def export_to_pdf(messages, fig=None):
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     
-    # Export the last message (response)
     msg = messages[-1]
     pdf.cell(200, 10, txt="Response:", ln=True)
     pdf.multi_cell(0, 10, txt=str(msg["content"]))
@@ -76,12 +73,10 @@ def export_to_pdf(messages, fig=None):
         img_stream = io.BytesIO()
         pio.write_image(fig, img_stream, format='png')
         img_stream.seek(0)
-        # Save BytesIO to temporary file
         temp_img = "temp_plot.png"
         with open(temp_img, 'wb') as f:
             f.write(img_stream.getvalue())
         pdf.image(temp_img, x=10, y=10, w=190)
-        # Clean up temp file
         os.remove(temp_img)
         
     return pdf.output(dest='S').encode('latin-1')
@@ -89,10 +84,8 @@ def export_to_pdf(messages, fig=None):
 def plot_data(df):
     fig = None
     with st.expander("Data Visualization"):
-        # Plot configuration
         plot_type = st.selectbox("Select Plot Type", ["Bar", "Line", "Scatter", "Box", "Histogram", "Pie"])
         
-        # Get all columns for selection
         all_columns = df.columns.tolist()
         
         if plot_type == "Pie":
@@ -106,17 +99,15 @@ def plot_data(df):
             x_axis = st.selectbox("Select X-axis", all_columns)
             y_axis = st.selectbox("Select Y-axis", all_columns)
             
-            # Create plot based on selection
             if plot_type == "Bar":
                 fig = px.bar(df, x=x_axis, y=y_axis)
             elif plot_type == "Line":
                 fig = px.line(df, x=x_axis, y=y_axis)
             elif plot_type == "Scatter":
                 fig = px.scatter(df, x=x_axis, y=y_axis)
-            else:  # Box plot
+            else:
                 fig = px.box(df, x=x_axis, y=y_axis)
         
-        # Additional customization options
         st.write("Customize Plot")
         title = st.text_input("Plot Title", "")
         if title:
@@ -132,7 +123,6 @@ def plot_data(df):
                 
         st.plotly_chart(fig)
         
-        # Export options
         st.write("Export Options")
         export_format = st.selectbox("Select Export Format", ["PowerPoint", "PDF", "Excel"])
         
@@ -217,7 +207,6 @@ def launch_bot():
     vq = st.session_state.vq
     st.set_page_config(page_title=cfg.title, layout="wide")
 
-    # left side content
     with st.sidebar:
         image = Image.open('ti-logo.png')
         st.image(image, width=350)
@@ -242,12 +231,10 @@ def launch_bot():
     if "messages" not in st.session_state.keys():
         reset()
                 
-    # Display chat messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"], avatar=message["avatar"]):
             if isinstance(message["content"], str):
                 st.write(message["content"])
-                # Add export options for text responses
                 if message["role"] == "assistant" and message["content"] != "How may I help you?":
                     st.write("Export Options")
                     export_format = st.selectbox("Select Export Format", ["PowerPoint", "PDF"], key=f"export_{message['role']}")
@@ -268,7 +255,7 @@ def launch_bot():
                                 file_name="chat_export.pdf",
                                 mime="application/pdf"
                             )
-            else:  # For dataframe responses
+            else:
                 st.dataframe(message["content"])
                 if not message["content"].empty:
                     plot_data(message["content"])
@@ -279,12 +266,10 @@ def launch_bot():
             example_container.empty()
             st.rerun()
 
-    # select prompt from example question or user provided input
     if st.session_state.ex_prompt:
         prompt = st.session_state.ex_prompt
     else:
         prompt = st.chat_input()
-        # Add pill selector for response format
         selected_format = st.pills("Response format:", ["Normal", "Table"], selection_mode="single", default="Normal")
         if prompt and selected_format == "Table":
             prompt = f"[table] {prompt}"
@@ -295,7 +280,6 @@ def launch_bot():
             st.write(prompt)
         st.session_state.ex_prompt = None
         
-    # Generate a new response if last message is not from assistant
     if st.session_state.messages[-1]["role"] != "assistant":
         with st.chat_message("assistant", avatar="🤖"):
             if '[table]' in prompt.lower():
@@ -304,7 +288,6 @@ def launch_bot():
                     st.dataframe(response)
                     if not response.empty:
                         plot_data(response)
-                    # Convert DataFrame to string representation for message storage
                     message_content = response
             elif cfg.streaming:
                 stream = generate_streaming_response(prompt)
@@ -321,7 +304,6 @@ def launch_bot():
             message = {"role": "assistant", "content": message_content, "avatar": '🤖'}
             st.session_state.messages.append(message)
 
-            # Send query and response to Amplitude Analytics
             send_amplitude_data(
                 user_query=st.session_state.messages[-2]["content"],
                 chat_response=str(st.session_state.messages[-1]["content"]),
@@ -330,7 +312,6 @@ def launch_bot():
             )
             st.rerun()
 
-# Replace the problematic condition with this:
     if (st.session_state.messages[-1]["role"] == "assistant" and 
         (isinstance(st.session_state.messages[-1]["content"], str) and 
         st.session_state.messages[-1]["content"] != "How may I help you?")):
