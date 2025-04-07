@@ -11,7 +11,7 @@ class VectaraQuery():
         self.conv_id = None
 
     
-    def get_body(self, query_str: str, response_lang: str, stream: False):
+    def get_body(self, query_str: str, response_lang: str, stream: False, temperature: float = 0.1):
         corpora_list = [{
                 'corpus_key': corpus_key, 'lexical_interpolation': 0.005
             } for corpus_key in self.corpus_keys
@@ -51,6 +51,10 @@ class VectaraQuery():
                 'generation_preset_name': self.prompt_name,
                 'max_used_search_results': 7,
                 'response_language': response_lang,
+                'model_parameters': {
+                    'temperature': temperature,
+
+                },
                 'citations':
                 {
                     'style': 'none',
@@ -83,13 +87,13 @@ class VectaraQuery():
             "grpc-timeout": "60S"
         }
 
-    def submit_query(self, query_str: str, language: str):
+    def submit_query(self, query_str: str, language: str, temperature: int):
         if self.conv_id:
             endpoint = f"https://api.vectara.io/v2/chats/{self.conv_id}/turns"
         else:
             endpoint = "https://api.vectara.io/v2/chats"
 
-        body = self.get_body(query_str, language, stream=False)
+        body = self.get_body(query_str, language, stream=False, temperature=temperature)
         response = requests.post(endpoint, data=json.dumps(body), verify=True, headers=self.get_headers())
 
         if response.status_code != 200:
@@ -121,7 +125,7 @@ class VectaraQuery():
             
         return summary
 
-    def submit_query_streaming(self, query_str: str, language: str):
+    def submit_query_streaming(self, query_str: str, language: str, temperature: int):
         if '[table]' in query_str.lower():
             return self.submit_query(query_str, language)
 
@@ -130,7 +134,7 @@ class VectaraQuery():
         else:
             endpoint = "https://api.vectara.io/v2/chats"
 
-        body = self.get_body(query_str, language, stream=True)
+        body = self.get_body(query_str, language, stream=True, temperature=temperature)
 
         response = requests.post(endpoint, data=json.dumps(body), verify=True, headers=self.get_stream_headers(), stream=True) 
 

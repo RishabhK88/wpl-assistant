@@ -358,11 +358,11 @@ def launch_bot():
         st.session_state.pending_prompt = None
         st.session_state.selected_format = "Summarized Text"
 
-    def generate_response(question, lang_code):
-        return vq.submit_query(question, lang_code)
+    def generate_response(question, lang_code, temperature):
+        return vq.submit_query(question, lang_code, temperature)
 
-    def generate_streaming_response(question, lang_code):
-        return vq.submit_query_streaming(question, lang_code)
+    def generate_streaming_response(question, lang_code, temperature):
+        return vq.submit_query_streaming(question, lang_code, temperature)
 
     with st.sidebar:
         if os.path.exists(LOGO_PATH):
@@ -386,6 +386,9 @@ def launch_bot():
             cfg.language = selected_language
             reset_chat()
             st.rerun()
+        
+        temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.1, step=0.1, help="How creative do you want my answers to be?")
+        st.session_state.temperature = temperature
 
         st.markdown("---")
         if st.button('Start Over', key='start_over_button', use_container_width=True):
@@ -472,7 +475,7 @@ def launch_bot():
                  with response_generation_area:
                     with st.status("Generating Data Tables...", expanded=True):
                         st.write("Querying Data Store...")
-                        response = generate_response(user_message_content, lang_code)
+                        response = generate_response(user_message_content, lang_code, temperature)
                         st.write("Formatting Data Tables...")
 
                         if not isinstance(response, pd.DataFrame):
@@ -526,14 +529,14 @@ def launch_bot():
                  with response_generation_area:
                      with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
                          stream_placeholder = st.empty()
-                         stream = generate_streaming_response(user_message_content, lang_code)
+                         stream = generate_streaming_response(user_message_content, lang_code, temperature)
                          response_str = stream_placeholder.write_stream(stream)
                  message_content = escape_dollars_outside_latex(response_str)
 
             else:
                 with response_generation_area:
                      with st.status("Thinking...", expanded=True):
-                         response_str = generate_response(user_message_content, lang_code)
+                         response_str = generate_response(user_message_content, lang_code, temperature)
                 message_content = escape_dollars_outside_latex(response_str)
 
             if message_content is not None:
