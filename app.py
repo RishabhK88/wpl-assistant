@@ -11,6 +11,7 @@ from fpdf import FPDF
 import plotly.express as px
 import plotly.io as pio
 import time
+from typing import List, Dict
 
 import streamlit as st
 from streamlit_pills import pills
@@ -305,6 +306,33 @@ def plot_data(df, message_key):
 
     return fig
 
+def show_ingestion_results(results: List[Dict]):
+    """Display ingestion results with proper formatting"""
+    success_count = sum(1 for r in results if r['success'])
+    failure_count = len(results) - success_count
+    
+    if success_count > 0:
+        st.success(f"✅ Successfully ingested {success_count} file(s)")
+    
+    if failure_count > 0:
+        st.error(f"❌ Failed to ingest {failure_count} file(s)")
+    
+    with st.expander("See detailed results", expanded=True):
+        for result in results:
+            if result['success']:
+                with st.container():
+                    st.markdown(f"✅ **{result['filename']}**")
+                    st.markdown(f"- {result['message']}")
+                    if 'metadata' in result:
+                        content_type = result['metadata'].get('Content-Type', 'Unknown type')
+                        st.markdown(f"- Type: `{content_type}`")
+                    st.markdown("---")
+            else:
+                with st.container():
+                    st.markdown(f"❌ **{result['filename']}**")
+                    st.markdown(f"- Error: {result['error']}")
+                    st.markdown("---")
+
 def launch_bot():
     if 'cfg' not in st.session_state:
         try:
@@ -313,7 +341,7 @@ def launch_bot():
                 'corpus_keys': corpus_keys,
                 'api_key': str(os.environ['api_key']),
                 'title': os.environ.get('title', 'Chatbot'),
-                'source_data_desc': os.environ.get('source_data_desc', 'Chatbot powered by Vectara'),
+                'source_data_desc': os.environ.get('source_data_desc', 'AI Assistant'),
                 'streaming': isTrue(os.environ.get('streaming', True)),
                 'prompt_name': os.environ.get('prompt_name', None),
                 'examples': os.environ.get('examples', ''),
@@ -371,8 +399,27 @@ def launch_bot():
         else:
             st.warning(f"Logo file not found at {LOGO_PATH}")
 
-        st.title(cfg.title)
-        st.caption(cfg.source_data_desc)
+        st.caption(cfg.title)
+
+        st.markdown("---")
+
+        uploaded_files = st.file_uploader(
+            label="Upload Files",
+            help="Supported formats: PDF, PPT/PPTX, DOC/DOCX, Markdown, HTML",
+            accept_multiple_files=True,
+            type=['pdf', 'ppt', 'pptx', 'doc', 'docx', 'md', 'html', 'htm']
+        )
+
+        if uploaded_files:
+            st.info(f"📁 {len(uploaded_files)} file(s) selected")
+            if st.button("Ingest", key="ingest_button", use_container_width=True):
+                with st.spinner("Ingesting files..."):
+                    try:
+                        results = vq.ingest_files_to_corpus(uploaded_files, corpus_key="custom_uploaded_data")
+                        show_ingestion_results(results)
+                    except Exception as e:
+                        st.error(f"Failed to process files: {str(e)}")
+
         st.markdown("---")
 
         selected_language = st.selectbox(

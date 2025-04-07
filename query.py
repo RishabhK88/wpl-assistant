@@ -2,7 +2,6 @@ import requests
 import json
 import pandas as pd
 
-
 class VectaraQuery():
     def __init__(self, api_key: str, corpus_keys: list[str], prompt_name: str = None):
         self.corpus_keys = corpus_keys
@@ -10,7 +9,99 @@ class VectaraQuery():
         self.prompt_name = prompt_name if prompt_name else "vectara-summary-ext-24-05-sml"
         self.conv_id = None
 
-    
+    def ingest_files_to_corpus(self, files: list, corpus_key: str):
+        """Ingest multiple files into the specified corpus."""
+        endpoint = f"https://api.vectara.io/v2/corpora/{corpus_key}/upload_file"
+        headers = {
+            "Accept": "application/json",
+            "x-api-key": self.api_key,
+            "grpc-timeout": "60S"
+        }
+        results = []
+        
+        for file in files:
+            try:
+                filename = file.name
+                file_content = file.read()
+                
+                file_ext = filename.lower().split('.')[-1]
+                allowed_extensions = {'pdf', 'ppt', 'pptx', 'doc', 'docx', 'md', 'html', 'htm'}
+                
+                if file_ext not in allowed_extensions:
+                    results.append({
+                        'filename': filename,
+                        'success': False,
+                        'error': f'Unsupported file type: {file_ext}. Allowed types: {", ".join(allowed_extensions)}'
+                    })
+                    continue
+                
+                files_data = {'file': (filename, file_content, self._get_mime_type(file_ext))}
+                
+                response = requests.post(endpoint, headers=headers, files=files_data)
+                
+                if response.status_code == 201:
+                    response_data = response.json()
+                    bytes_used = response_data.get('storage_usage', {}).get('bytes_used', 0)
+                    metadata_bytes = response_data.get('storage_usage', {}).get('metadata_bytes_used', 0)
+                    size_str = self._format_file_size(bytes_used)
+                    metadata_size_str = self._format_file_size(metadata_bytes)
+                    
+                    results.append({
+                        'filename': filename,
+                        'success': True,
+                        'message': f'Successfully ingested (Content: {size_str}, Metadata: {metadata_size_str})',
+                        'doc_id': response_data.get('id'),
+                        'metadata': response_data.get('metadata', {}),
+                        'storage_usage': response_data.get('storage_usage', {})
+                    })
+                else:
+                    error_detail = "Unknown error"
+                    try:
+                        error_response = response.json()
+                        error_detail = error_response.get('messages', ['Unknown error'])[0]
+                    except:
+                        error_detail = response.text or response.reason
+                    
+                    results.append({
+                        'filename': filename,
+                        'success': False,
+                        'error': f'Failed with status {response.status_code}: {error_detail}'
+                    })
+                    
+            except Exception as e:
+                results.append({
+                    'filename': filename,
+                    'success': False,
+                    'error': str(e)
+                })
+                
+            file.seek(0)
+                
+        return results
+
+    def _format_file_size(self, size_bytes: int) -> str:
+        """Convert bytes to human readable format."""
+        if size_bytes < 1024:
+            return f"{size_bytes} bytes"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes/1024:.1f} KB"
+        else:
+            return f"{size_bytes/(1024*1024):.1f} MB"
+
+    def _get_mime_type(self, file_ext: str) -> str:
+        """Helper method to get the correct MIME type for file uploads."""
+        mime_types = {
+            'pdf': 'application/pdf',
+            'ppt': 'application/vnd.ms-powerpoint',
+            'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'md': 'text/markdown',
+            'html': 'text/html',
+            'htm': 'text/html'
+        }
+        return mime_types.get(file_ext.lower(), 'application/octet-stream')
+
     def get_body(self, query_str: str, response_lang: str, stream: False, temperature: float = 0.1):
         corpora_list = [{
                 'corpus_key': corpus_key, 'lexical_interpolation': 0.005
@@ -53,7 +144,6 @@ class VectaraQuery():
                 'response_language': response_lang,
                 'model_parameters': {
                     'temperature': temperature,
-
                 },
                 'citations':
                 {
@@ -70,7 +160,6 @@ class VectaraQuery():
             'stream_response': stream
         }
     
-
     def get_headers(self):
         return {
             "Content-Type": "application/json",
