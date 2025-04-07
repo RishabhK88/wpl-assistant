@@ -1,3 +1,6 @@
+
+# region imports
+
 from omegaconf import OmegaConf
 from query import VectaraQuery
 import os
@@ -22,6 +25,47 @@ from utils import thumbs_feedback, send_amplitude_data, escape_dollars_outside_l
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
+# endregion imports
+
+# region debugger
+
+import debugpy
+
+def initialize_debugger(max_attempts=30):
+
+    try:
+        if not hasattr(initialize_debugger, 'is_listening'):
+            debugpy.listen(("0.0.0.0", 5678))
+            initialize_debugger.is_listening = True
+            print("🔌 Debugger listening on port 5678")
+
+        if debugpy.is_client_connected():
+            print("✅ Debugger already attached")
+            return True
+
+        print("⏳ Waiting for debugger to attach...")
+        attempts = 0
+        while not debugpy.is_client_connected() and attempts < max_attempts:
+            time.sleep(1)
+            attempts += 1
+
+        if debugpy.is_client_connected():
+            print("🎯 Debugger attached successfully!")
+            return True
+        else:
+            print("⚠️ Debugger connection timeout")
+            return False
+
+    except Exception as e:
+        return False
+
+if os.getenv('DEBUGGER', 'False').lower() == 'true':
+    initialize_debugger()
+
+# endregion debugger
+
+# region globals
+
 MAX_EXAMPLES = 6
 LANGUAGES = {'English': 'eng', 'Spanish': 'spa', 'French': 'fra', 'Chinese': 'zho', 'German': 'deu', 'Hindi': 'hin', 'Arabic': 'ara',
              'Portuguese': 'por', 'Italian': 'ita', 'Japanese': 'jpn', 'Korean': 'kor', 'Russian': 'rus', 'Turkish': 'tur', 'Persian (Farsi)': 'fas',
@@ -31,6 +75,10 @@ INITIAL_ASSISTANT_MESSAGE = "How may I help you?"
 ASSISTANT_AVATAR = '🤖'
 USER_AVATAR = '🧑‍💻'
 LOGO_PATH = 'ti-logo.png'
+
+# endregion globals
+
+# region auxiliary functions
 
 def isTrue(x) -> bool:
     if isinstance(x, bool):
@@ -333,7 +381,11 @@ def show_ingestion_results(results: List[Dict]):
                     st.markdown(f"- Error: {result['error']}")
                     st.markdown("---")
 
+# endregion auxiliary functions
+
+
 def launch_bot():
+
     if 'cfg' not in st.session_state:
         try:
             corpus_keys = str(os.environ['corpus_keys']).split(',')
