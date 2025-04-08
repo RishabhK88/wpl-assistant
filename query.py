@@ -4,6 +4,9 @@ import pandas as pd
 
 from re import findall as re_findall
 
+from utils import find_first_relevance_drop
+
+
 class VectaraQuery():
     
     def __init__(self, api_key: str, corpus_keys: list[str], prompt_name: str = None):
@@ -204,9 +207,13 @@ class VectaraQuery():
         
         if '[table]' in query_str.lower():
             search_results = res.get('search_results', [])
+            metrics = find_first_relevance_drop(search_results)
+            idx = metrics['cutoff_details']['index']
+            search_results = search_results[:idx]
+
             if search_results:
                 data = []
-                for result in search_results:
+                for result in search_results[:idx]:
                     metadata = result.get('part_metadata', {})
                     row = {}
                     for field_name, field_value in metadata.items():
