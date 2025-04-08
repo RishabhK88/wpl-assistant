@@ -270,40 +270,36 @@ class VectaraQuery():
                                 }
                                 search_list.append(search_entry)
 
-        yield from generate_chunks()  # First, yield all chunks of data
+        yield from generate_chunks()
 
         full_text = ''.join(chunks)
         citation_numbers = set()
 
-        # Extract citation numbers from the relevant results
         for line in full_text.split('\n'):
             if line.strip():
                 line = line.rstrip()
-                # Check for lines ending with citations
                 if (line.endswith(']') or line.endswith('])')):
-                    # Match both single [n] and multiple [n, m, ...] citation formats
                     numbers = re_findall(r'\[(\d+(?:\s*,\s*\d+)*)\]', line)
                     if numbers:
                         for num_group in numbers:
                             nums = [int(n.strip()) for n in num_group.split(',')]
                             citation_numbers.update(nums)
 
-        # Create the citation appendix
         if citation_numbers and search_list:
             appendix = "\n\nReferences:\n"
             citations = []
             for idx in sorted(citation_numbers):
-                if 0 <= idx-1 < len(search_list):  # idx-1 because citations are 1-based
+                if 0 <= idx-1 < len(search_list):
                     entry = search_list[idx-1]
                     doc_id = entry['document_id']
                     
-                    if entry['url']:  # If URL exists, use [number] as link text
+                    if entry['url']:
                         citations.append(f"[[{idx}]]({entry['url']})") 
-                    elif entry['corpus_key']:  # If corpus_key exists, create markdown link with constructed URL
+                    elif entry['corpus_key']:
                         encoded_doc_id = requests.utils.quote(doc_id)
                         constructed_url = f"https://console.vectara.com/console/corpus/key/{entry['corpus_key']}/data/document/{encoded_doc_id}"
                         citations.append(f"[[{idx}]]({constructed_url}) {doc_id}")
-                    else:  # Default to base Vectara console URL
+                    else:
                         citations.append(f"[[{idx}]](https://console.vectara.com/console/corpus) {doc_id}")
             
             appendix += ", ".join(citations)

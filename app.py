@@ -1,6 +1,3 @@
-
-# region imports
-
 from omegaconf import OmegaConf
 from query import VectaraQuery
 import os
@@ -24,10 +21,6 @@ from utils import thumbs_feedback, send_amplitude_data, escape_dollars_outside_l
 
 from dotenv import load_dotenv
 load_dotenv(override=True)
-
-# endregion imports
-
-# region debugger
 
 import debugpy
 
@@ -62,10 +55,6 @@ def initialize_debugger(max_attempts=30):
 if os.getenv('DEBUGGER', 'False').lower() == 'true':
     initialize_debugger()
 
-# endregion debugger
-
-# region globals
-
 MAX_EXAMPLES = 6
 LANGUAGES = {'English': 'eng', 'Spanish': 'spa', 'French': 'fra', 'Chinese': 'zho', 'German': 'deu', 'Hindi': 'hin', 'Arabic': 'ara',
              'Portuguese': 'por', 'Italian': 'ita', 'Japanese': 'jpn', 'Korean': 'kor', 'Russian': 'rus', 'Turkish': 'tur', 'Persian (Farsi)': 'fas',
@@ -75,10 +64,6 @@ INITIAL_ASSISTANT_MESSAGE = "How may I help you?"
 ASSISTANT_AVATAR = '🤖'
 USER_AVATAR = '🧑‍💻'
 LOGO_PATH = 'ti-logo.png'
-
-# endregion globals
-
-# region auxiliary functions
 
 def isTrue(x) -> bool:
     if isinstance(x, bool):
@@ -380,9 +365,6 @@ def show_ingestion_results(results: List[Dict]):
                     st.markdown(f"❌ **{result['filename']}**")
                     st.markdown(f"- Error: {result['error']}")
                     st.markdown("---")
-
-# endregion auxiliary functions
-
 
 def launch_bot():
 
