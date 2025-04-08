@@ -1,0 +1,11 @@
+
+# Temp folders
+/**/temp/
+__pycache__/
+
+# Local folders
+.*-venv/
+.vscode/
+
+# Local Files
+.env
