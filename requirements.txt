@@ -2,6 +2,8 @@ altair==5.5.0
 antlr4-python3-runtime==4.9.3
 attrs==25.3.0
 blinker==1.9.0
+boto3==1.37.29
+botocore==1.37.29
 cachetools==5.5.2
 certifi==2025.1.31
 charset-normalizer==3.4.1
@@ -14,6 +16,7 @@ GitPython==3.1.44
 idna==3.10
 iniconfig==2.1.0
 Jinja2==3.1.6
+jmespath==1.0.1
 jsonschema==4.23.0
 jsonschema-specifications==2024.10.1
 kaleido==0.2.1
@@ -41,6 +44,7 @@ referencing==0.36.2
 requests==2.32.3
 requests_to_curl==1.1.0
 rpds-py==0.23.1
+s3transfer==0.11.4
 six==1.17.0
 smmap==5.0.2
 status==0.2.5
