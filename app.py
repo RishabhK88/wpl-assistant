@@ -491,7 +491,25 @@ def launch_bot():
                     st.dataframe(content, use_container_width=True)
                     if not content.empty:
                         with st.expander("📊 View & Export Data Visualization", expanded=False):
-                             fig = plot_data(content, message_key)
+                            fig = plot_data(content, message_key)
+                        if st.button("Analyze & Provide Insights", key=f"analyze_{message_key}", use_container_width=True):
+                            original_query = next(
+                                (msg["content"] for msg in reversed(st.session_state.messages[:i])
+                                if msg["role"] == "user"),
+                                "Unknown Query"
+                            )
+
+                            analysis = vq.analyze_data_with_claude(content, original_query)
+
+                            st.session_state.messages.append({
+                                "role": "assistant",
+                                "content": analysis,
+                                "avatar": ASSISTANT_AVATAR,
+                                "key": f"msg_{st.session_state.message_counter}"
+                            })
+                            st.session_state.message_counter += 1
+                            st.rerun()
+         
                 else:
                     st.write(content)
 
