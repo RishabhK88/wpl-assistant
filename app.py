@@ -468,7 +468,7 @@ def launch_bot():
             reset_chat()
             st.rerun()
         
-        temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.1, step=0.1, help="How creative do you want my answers to be?")
+        temperature = st.slider("Creativity Parameter", min_value=0.0, max_value=1.0, value=0.1, step=0.1, help="Low for precision, High for creativity. Set 0 when accuracy critical")
         st.session_state.temperature = temperature
 
         st.markdown("---")
@@ -516,10 +516,11 @@ def launch_bot():
                                 st.rerun()
                         with col2:
                             full_result_button = st.button(
-                                "Provide Full Result",
+                                "Update Results",
                                 key=f"full_result_{message_key}",
                                 disabled=cutoff_type == 'no_significant_drop',
-                                use_container_width=True
+                                use_container_width=True,
+                                help="Use only if initial results seem incomplete - might remove seemingly redundant columns"
                             )
                             if full_result_button:
                                 original_query = next(
