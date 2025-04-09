@@ -185,7 +185,7 @@ class VectaraQuery():
             "grpc-timeout": "60S"
         }
 
-    def submit_query(self, query_str: str, language: str, temperature: int):
+    def submit_query(self, query_str: str, language: str, temperature: int, again: bool = False):
         if self.conv_id:
             endpoint = f"https://api.vectara.io/v2/chats/{self.conv_id}/turns"
         else:
@@ -211,7 +211,7 @@ class VectaraQuery():
         
         temperature = 0.5
         top_p = 1
-        max_tokens_to_generate = 250
+        max_tokens_to_generate = 4096
 
         system_prompt = "All your responses should be accurate"
 
@@ -224,7 +224,7 @@ class VectaraQuery():
             search_results = res.get('search_results', [])
             metrics = find_first_relevance_drop(search_results)
 
-            if(metrics['cutoff_type'] == 'no_significant_drop'):
+            if(metrics['cutoff_type'] == 'no_significant_drop' or again):
                 self.last_search_results = search_results
                 if search_results:
                     results_for_llm = []
@@ -301,16 +301,16 @@ class VectaraQuery():
                                 for field_name in important_fields:
                                     if(field_name in metadata):
                                         row[field_name] = metadata.get(field_name)
-                                data.append(row)
-                        return pd.DataFrame(data)
+                                if row and any(value is not None for value in row.values()):
+                                    data.append(row)
+                        return {"data": pd.DataFrame(data), "cutoff_type": 'no_significant_drop' if again else metrics['cutoff_type']}
                     except json.JSONDecodeError:
                         print("Error parsing LLM response. Using default processing.")
-                        return self._process_default_table(search_results)
-                return pd.DataFrame()
+                        return {"data": self._process_default_table(search_results), "cutoff_type": 'no_significant_drop' if again else metrics['cutoff_type']}
+                return {"data":pd.DataFrame(), "cutoff_type": 'no_significant_drop' if again else metrics['cutoff_type']}
             else:
                 idx = metrics['cutoff_details']['index']
                 search_results = search_results[:idx]
-
                 if search_results:
                     data = []
                     for result in search_results[:idx]:
@@ -320,8 +320,8 @@ class VectaraQuery():
                             if(field_name not in ["lang", "offset", "len"]):
                                 row[field_name] = metadata.get(field_name)
                         data.append(row)
-                    return pd.DataFrame(data)
-                return pd.DataFrame()
+                    return {"data": pd.DataFrame(data), "cutoff_type": metrics['cutoff_type']}
+                return {"data": pd.DataFrame(), "cutoff_type": metrics['cutoff_type']}
             
         return summary
 
@@ -429,7 +429,7 @@ class VectaraQuery():
         
         temperature = 0.5
         top_p = 1
-        max_tokens_to_generate = 250
+        max_tokens_to_generate = 4096
 
         system_prompt = "Your responses should be accurate and detailed"
 

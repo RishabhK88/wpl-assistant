@@ -420,8 +420,8 @@ def launch_bot():
         st.session_state.pending_prompt = None
         st.session_state.selected_format = "Summarized Text"
 
-    def generate_response(question, lang_code, temperature):
-        return vq.submit_query(question, lang_code, temperature)
+    def generate_response(question, lang_code, temperature, again=False):
+        return vq.submit_query(question, lang_code, temperature, again)
 
     def generate_streaming_response(question, lang_code, temperature):
         return vq.submit_query_streaming(question, lang_code, temperature)
@@ -487,29 +487,56 @@ def launch_bot():
 
                 if isinstance(content, str):
                     st.markdown(content)
-                elif isinstance(content, pd.DataFrame):
-                    st.dataframe(content, use_container_width=True)
-                    if not content.empty:
+                elif isinstance(content, pd.DataFrame) or (isinstance(content, dict) and 'data' in content):
+                    df = content['data'] if isinstance(content, dict) else content
+                    cutoff_type = content.get('cutoff_type') if isinstance(content, dict) else None
+                    st.dataframe(df, use_container_width=True)
+                    if not df.empty:
                         with st.expander("📊 View & Export Data Visualization", expanded=False):
-                            fig = plot_data(content, message_key)
-                        if st.button("Analyze & Provide Insights", key=f"analyze_{message_key}", use_container_width=True):
-                            original_query = next(
-                                (msg["content"] for msg in reversed(st.session_state.messages[:i])
-                                if msg["role"] == "user"),
-                                "Unknown Query"
+                            fig = plot_data(df, message_key)
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("Analyze & Provide Insights", key=f"analyze_{message_key}", use_container_width=True):
+                                original_query = next(
+                                    (msg["content"] for msg in reversed(st.session_state.messages[:i])
+                                    if msg["role"] == "user"),
+                                    "Unknown Query"
+                                )
+
+                                analysis = vq.analyze_data_with_claude(df, original_query)
+
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": analysis,
+                                    "avatar": ASSISTANT_AVATAR,
+                                    "key": f"msg_{st.session_state.message_counter}"
+                                })
+                                st.session_state.message_counter += 1
+                                st.rerun()
+                        with col2:
+                            full_result_button = st.button(
+                                "Provide Full Result",
+                                key=f"full_result_{message_key}",
+                                disabled=cutoff_type == 'no_significant_drop',
+                                use_container_width=True
                             )
+                            if full_result_button:
+                                original_query = next(
+                                    (msg["content"] for msg in reversed(st.session_state.messages[:i])
+                                    if msg["role"] == "user"),
+                                    "Unknown Query"
+                                )
 
-                            analysis = vq.analyze_data_with_claude(content, original_query)
+                                if "[table]" not in original_query.lower():
+                                    original_query = f"[table] {original_query}"
 
-                            st.session_state.messages.append({
-                                "role": "assistant",
-                                "content": analysis,
-                                "avatar": ASSISTANT_AVATAR,
-                                "key": f"msg_{st.session_state.message_counter}"
-                            })
-                            st.session_state.message_counter += 1
-                            st.rerun()
-         
+                                st.session_state.pending_prompt = original_query
+                                st.session_state.selected_format_for_prompt = "Data Tables & Visualisation"
+                                st.session_state.show_full_result = True
+                                st.rerun()
+
+            
                 else:
                     st.write(content)
 
@@ -574,8 +601,12 @@ def launch_bot():
                  with response_generation_area:
                     with st.status("Generating Data Tables...", expanded=True):
                         st.write("Querying Data Store...")
-                        response = generate_response(user_message_content, lang_code, temperature)
+                        again = st.session_state.get('show_full_result', False)
+                        response = generate_response(user_message_content, lang_code, temperature, again)
                         st.write("Formatting Data Tables...")
+
+                        if 'show_full_result' in st.session_state:
+                            del st.session_state.show_full_result
 
                         if not isinstance(response, pd.DataFrame):
                              try:
